@@ -335,7 +335,9 @@ import {
   addDoc,
   getDocs,
   deleteDoc,
-  doc
+  doc,
+  query,
+  orderBy
 
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -345,17 +347,19 @@ import {
 
 const firebaseConfig = {
 
-  apiKey: "YOUR_API_KEY",
+  apiKey: "AIzaSyDeW0B7V4Y5Z_-lgBuT0yc7tjIWaubldHE",
 
-  authDomain: "YOUR_AUTH_DOMAIN",
+  authDomain: "import-shipment.firebaseapp.com",
 
-  projectId: "YOUR_PROJECT_ID",
+  projectId: "import-shipment",
 
-  storageBucket: "YOUR_STORAGE_BUCKET",
+  storageBucket: "import-shipment.firebasestorage.app",
 
-  messagingSenderId: "YOUR_SENDER_ID",
+  messagingSenderId: "987740471486",
 
-  appId: "YOUR_APP_ID"
+  appId: "1:987740471486:web:811630f04151d5e83ddeef",
+
+  measurementId: "G-KE0CCQFWD7"
 
 };
 
@@ -708,9 +712,12 @@ async function render(){
 
   try{
 
-    const snapshot = await getDocs(
-      collection(db,"qaData")
+    const q = query(
+      collection(db,"qaData"),
+      orderBy("createdAt","desc")
     );
+
+    const snapshot = await getDocs(q);
 
     const docs = [];
 
@@ -889,9 +896,12 @@ window.exportExcel = async function(){
 
   try{
 
-    const snapshot = await getDocs(
-      collection(db,"qaData")
+    const q = query(
+      collection(db,"qaData"),
+      orderBy("createdAt","desc")
     );
+
+    const snapshot = await getDocs(q);
 
     const docs = [];
 
@@ -900,10 +910,6 @@ window.exportExcel = async function(){
       docs.push(d.data());
 
     });
-
-    /* =========================
-       SORT NEWEST FIRST
-    ========================= */
 
     docs.sort((a,b)=>{
 
