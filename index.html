@@ -178,7 +178,9 @@ th{
 
 </datalist>
 
-<!-- TOP FORM -->
+<!-- =========================
+     TOP FORM
+========================= -->
 
 <div class="card top">
 
@@ -196,7 +198,9 @@ th{
 
 </div>
 
-<!-- ROW INPUT -->
+<!-- =========================
+     ITEM FORM
+========================= -->
 
 <div class="card">
 
@@ -231,7 +235,9 @@ th{
 
 </div>
 
-<!-- TABLE -->
+<!-- =========================
+     TABLE
+========================= -->
 
 <div class="card">
 
@@ -265,9 +271,22 @@ th{
 >
 </div>
 
-<button class="add" onclick="render()">
-Filter
-</button>
+<div>
+<label>Sort Date</label>
+
+<select id="sortDate">
+
+<option value="desc">
+ใหม่ → เก่า
+</option>
+
+<option value="asc">
+เก่า → ใหม่
+</option>
+
+</select>
+
+</div>
 
 <button class="export" onclick="resetFilter()">
 Reset
@@ -332,22 +351,27 @@ import {
   getDocs,
   deleteDoc,
   doc,
-  orderBy,
-  query
+  query,
+  orderBy
 
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 /* =========================
-   CONFIG
+   FIREBASE CONFIG
 ========================= */
 
 const firebaseConfig = {
 
   apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_DOMAIN",
+
+  authDomain: "YOUR_AUTH_DOMAIN",
+
   projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_BUCKET",
-  messagingSenderId: "YOUR_MSG_ID",
+
+  storageBucket: "YOUR_STORAGE_BUCKET",
+
+  messagingSenderId: "YOUR_SENDER_ID",
+
   appId: "YOUR_APP_ID"
 
 };
@@ -514,7 +538,9 @@ window.addRow = function(){
   }
 
   vol.oninput = update;
+
   issue.oninput = update;
+
   status.onchange = update;
 
   wrap.querySelector(".del").onclick = ()=>{
@@ -599,6 +625,7 @@ window.saveData = async function(){
       },
 
       rows,
+
       createdAt:new Date().toISOString()
 
     };
@@ -625,7 +652,7 @@ window.saveData = async function(){
 };
 
 /* =========================
-   CLEAR
+   CLEAR FORM
 ========================= */
 
 function clearForm(){
@@ -653,8 +680,37 @@ window.resetFilter = function(){
   endDate.value = "";
   searchShipment.value = "";
   searchSupplier.value = "";
+  sortDate.value = "desc";
 
   render();
+
+};
+
+/* =========================
+   DELETE
+========================= */
+
+window.deleteData = async function(id){
+
+  const ok = confirm("ลบข้อมูล ?");
+
+  if(!ok) return;
+
+  try{
+
+    await deleteDoc(
+      doc(db,"qaData",id)
+    );
+
+    render();
+
+  }catch(err){
+
+    console.error(err);
+
+    alert("ลบไม่สำเร็จ");
+
+  }
 
 };
 
@@ -677,21 +733,25 @@ async function render(){
 
     const snapshot = await getDocs(q);
 
-    if(snapshot.empty){
+    const docs = [];
 
-      tb.innerHTML = `
-      <tr>
-        <td colspan="14">
-          ไม่มีข้อมูล
-        </td>
-      </tr>
-      `;
+    snapshot.forEach(d=>{
 
-      return;
+      docs.push({
 
-    }
+        id:d.id,
+        ...d.data()
+
+      });
+
+    });
+
+    /* =========================
+       FILTER
+    ========================= */
 
     const start = startDate.value;
+
     const end = endDate.value;
 
     const shipmentSearch =
@@ -704,16 +764,29 @@ async function render(){
       .trim()
       .toLowerCase();
 
+    /* =========================
+       SORT
+    ========================= */
+
+    docs.sort((a,b)=>{
+
+      if(sortDate.value === "asc"){
+
+        return new Date(a.top.date)
+          - new Date(b.top.date);
+
+      }else{
+
+        return new Date(b.top.date)
+          - new Date(a.top.date);
+
+      }
+
+    });
+
     let found = false;
 
-    snapshot.forEach(d=>{
-
-      const g = {
-
-        id:d.id,
-        ...d.data()
-
-      };
+    docs.forEach(g=>{
 
       const docDate = g.top.date;
 
@@ -804,11 +877,15 @@ async function render(){
     if(!found){
 
       tb.innerHTML = `
+
       <tr>
+
         <td colspan="14">
           ไม่พบข้อมูล
         </td>
+
       </tr>
+
       `;
 
     }
@@ -818,44 +895,20 @@ async function render(){
     console.error(err);
 
     tb.innerHTML = `
+
     <tr>
+
       <td colspan="14">
         โหลดข้อมูลไม่สำเร็จ
       </td>
+
     </tr>
+
     `;
 
   }
 
 }
-
-/* =========================
-   DELETE
-========================= */
-
-window.deleteData = async function(id){
-
-  const ok = confirm("ลบข้อมูล ?");
-
-  if(!ok) return;
-
-  try{
-
-    await deleteDoc(
-      doc(db,"qaData",id)
-    );
-
-    render();
-
-  }catch(err){
-
-    console.error(err);
-
-    alert("ลบไม่สำเร็จ");
-
-  }
-
-};
 
 /* =========================
    EXPORT EXCEL
@@ -869,9 +922,16 @@ window.exportExcel = async function(){
       collection(db,"qaData")
     );
 
-    const data = [];
+    const docs = [];
+
+    snapshot.forEach(d=>{
+
+      docs.push(d.data());
+
+    });
 
     const start = startDate.value;
+
     const end = endDate.value;
 
     const shipmentSearch =
@@ -884,18 +944,16 @@ window.exportExcel = async function(){
       .trim()
       .toLowerCase();
 
-    snapshot.forEach(d=>{
-
-      const g = d.data();
+    const filtered = docs.filter(g=>{
 
       const docDate = g.top.date;
 
       if(start && docDate < start){
-        return;
+        return false;
       }
 
       if(end && docDate > end){
-        return;
+        return false;
       }
 
       if(
@@ -904,7 +962,7 @@ window.exportExcel = async function(){
         .toLowerCase()
         .includes(shipmentSearch)
       ){
-        return;
+        return false;
       }
 
       if(
@@ -913,14 +971,30 @@ window.exportExcel = async function(){
         .toLowerCase()
         .includes(supplierSearch)
       ){
-        return;
+        return false;
       }
 
-      data.push(g);
+      return true;
 
     });
 
-    if(!data.length){
+    filtered.sort((a,b)=>{
+
+      if(sortDate.value === "asc"){
+
+        return new Date(a.top.date)
+          - new Date(b.top.date);
+
+      }else{
+
+        return new Date(b.top.date)
+          - new Date(a.top.date);
+
+      }
+
+    });
+
+    if(!filtered.length){
 
       alert("ไม่มีข้อมูล");
 
@@ -930,7 +1004,7 @@ window.exportExcel = async function(){
 
     const defSet = new Set();
 
-    data.forEach(g=>{
+    filtered.forEach(g=>{
 
       g.rows.forEach(r=>{
 
@@ -952,7 +1026,7 @@ window.exportExcel = async function(){
 
     const rows = [];
 
-    data.forEach(g=>{
+    filtered.forEach(g=>{
 
       g.rows.forEach((r,i)=>{
 
@@ -1027,9 +1101,14 @@ window.exportExcel = async function(){
 ========================= */
 
 startDate.onchange = render;
+
 endDate.onchange = render;
+
 searchShipment.oninput = render;
+
 searchSupplier.oninput = render;
+
+sortDate.onchange = render;
 
 /* =========================
    START
