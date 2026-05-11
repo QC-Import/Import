@@ -307,7 +307,7 @@ Reset
 <tr>
 
 <td colspan="14" class="loading">
-Loading...
+ไม่มีข้อมูล
 </td>
 
 </tr>
@@ -323,49 +323,10 @@ Loading...
 <script type="module">
 
 /* =========================
-   FIREBASE
+   MOCK DATABASE
 ========================= */
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-
-import {
-
-  getFirestore,
-  collection,
-  addDoc,
-  getDocs,
-  deleteDoc,
-  doc,
-  query,
-  orderBy
-
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-/* =========================
-   FIREBASE CONFIG
-========================= */
-
-const firebaseConfig = {
-
-  apiKey: "AIzaSyDeW0B7V4Y5Z_-lgBuT0yc7tjIWaubldHE",
-
-  authDomain: "import-shipment.firebaseapp.com",
-
-  projectId: "import-shipment",
-
-  storageBucket: "import-shipment.firebasestorage.app",
-
-  messagingSenderId: "987740471486",
-
-  appId: "1:987740471486:web:811630f04151d5e83ddeef",
-
-  measurementId: "G-KE0CCQFWD7"
-
-};
-
-const app = initializeApp(firebaseConfig);
-
-const db = getFirestore(app);
+let mockData = [];
 
 /* =========================
    FORMAT DATE
@@ -554,7 +515,7 @@ window.addRow = function(){
    SAVE
 ========================= */
 
-window.saveData = async function(){
+window.saveData = function(){
 
   try{
 
@@ -617,10 +578,7 @@ window.saveData = async function(){
 
     };
 
-    await addDoc(
-      collection(db,"qaData"),
-      payload
-    );
+    mockData.push(payload);
 
     alert("บันทึกสำเร็จ");
 
@@ -676,27 +634,15 @@ window.resetFilter = function(){
    DELETE
 ========================= */
 
-window.deleteData = async function(id){
+window.deleteData = function(index){
 
   const ok = confirm("ลบข้อมูล ?");
 
   if(!ok) return;
 
-  try{
+  mockData.splice(index,1);
 
-    await deleteDoc(
-      doc(db,"qaData",id)
-    );
-
-    render();
-
-  }catch(err){
-
-    console.error(err);
-
-    alert("ลบไม่สำเร็จ");
-
-  }
+  render();
 
 };
 
@@ -704,180 +650,141 @@ window.deleteData = async function(id){
    RENDER
 ========================= */
 
-async function render(){
+function render(){
 
   const tb = document.getElementById("tb");
 
   tb.innerHTML = "";
 
-  try{
+  const docs = [...mockData];
 
-    const q = query(
-      collection(db,"qaData"),
-      orderBy("createdAt","desc")
-    );
+  /* =========================
+     AUTO SORT DATE
+  ========================= */
 
-    const snapshot = await getDocs(q);
+  docs.sort((a,b)=>{
 
-    const docs = [];
+    return new Date(b.createdAt)
+      - new Date(a.createdAt);
 
-    snapshot.forEach(d=>{
+  });
 
-      docs.push({
+  /* =========================
+     FILTER
+  ========================= */
 
-        id:d.id,
-        ...d.data()
+  const start = startDate.value;
 
-      });
+  const end = endDate.value;
 
-    });
+  const shipmentSearch =
+    searchShipment.value
+    .trim()
+    .toLowerCase();
 
-    /* =========================
-       AUTO SORT DATE
-       NEWEST FIRST
-    ========================= */
+  const supplierSearch =
+    searchSupplier.value
+    .trim()
+    .toLowerCase();
 
-    docs.sort((a,b)=>{
+  let found = false;
 
-      return new Date(b.createdAt)
-        - new Date(a.createdAt);
+  docs.forEach((g,index)=>{
 
-    });
+    const docDate = g.top.date;
 
-    /* =========================
-       FILTER
-    ========================= */
+    if(start && docDate < start){
+      return;
+    }
 
-    const start = startDate.value;
+    if(end && docDate > end){
+      return;
+    }
 
-    const end = endDate.value;
+    if(
+      shipmentSearch &&
+      !String(g.top.shipment)
+      .toLowerCase()
+      .includes(shipmentSearch)
+    ){
+      return;
+    }
 
-    const shipmentSearch =
-      searchShipment.value
-      .trim()
-      .toLowerCase();
+    if(
+      supplierSearch &&
+      !String(g.top.sup)
+      .toLowerCase()
+      .includes(supplierSearch)
+    ){
+      return;
+    }
 
-    const supplierSearch =
-      searchSupplier.value
-      .trim()
-      .toLowerCase();
+    found = true;
 
-    let found = false;
+    g.rows.forEach((r,ri)=>{
 
-    docs.forEach(g=>{
+      const tr = document.createElement("tr");
 
-      const docDate = g.top.date;
+      tr.className =
+        r.status === "Reject"
+        ? "rejectRow"
+        : "";
 
-      if(start && docDate < start){
-        return;
-      }
+      tr.innerHTML = `
 
-      if(end && docDate > end){
-        return;
-      }
+      <td>${g.top.wh}</td>
 
-      if(
-        shipmentSearch &&
-        !String(g.top.shipment)
-        .toLowerCase()
-        .includes(shipmentSearch)
-      ){
-        return;
-      }
+      <td>${formatDate(g.top.date)}</td>
 
-      if(
-        supplierSearch &&
-        !String(g.top.sup)
-        .toLowerCase()
-        .includes(supplierSearch)
-      ){
-        return;
-      }
+      <td>${g.top.sup}</td>
 
-      found = true;
+      <td>${r.item}</td>
 
-      g.rows.forEach((r,ri)=>{
+      <td>${r.th}</td>
 
-        const tr = document.createElement("tr");
+      <td>${r.en}</td>
 
-        tr.className =
-          r.status === "Reject"
-          ? "rejectRow"
-          : "";
+      <td>${r.type}</td>
 
-        tr.innerHTML = `
+      <td>${r.status}</td>
 
-        <td>${g.top.wh}</td>
+      <td>${g.top.shipment}</td>
 
-        <td>${formatDate(g.top.date)}</td>
+      <td>${g.top.inv}</td>
 
-        <td>${g.top.sup}</td>
+      <td>${ri===0?g.top.total:""}</td>
 
-        <td>${r.item}</td>
+      <td>${r.vol}</td>
 
-        <td>${r.th}</td>
+      <td>${r.issue}</td>
 
-        <td>${r.en}</td>
+      <td>
 
-        <td>${r.type}</td>
+        <button
+          class="del"
+          onclick="deleteData(${index})"
+        >
+          ลบ
+        </button>
 
-        <td>${r.status}</td>
-
-        <td>${g.top.shipment}</td>
-
-        <td>${g.top.inv}</td>
-
-        <td>${ri===0?g.top.total:""}</td>
-
-        <td>${r.vol}</td>
-
-        <td>${r.issue}</td>
-
-        <td>
-
-          <button
-            class="del"
-            onclick="deleteData('${g.id}')"
-          >
-            ลบ
-          </button>
-
-        </td>
-
-        `;
-
-        tb.appendChild(tr);
-
-      });
-
-    });
-
-    if(!found){
-
-      tb.innerHTML = `
-
-      <tr>
-
-        <td colspan="14">
-          ไม่พบข้อมูล
-        </td>
-
-      </tr>
+      </td>
 
       `;
 
-    }
+      tb.appendChild(tr);
 
-  }catch(err){
+    });
 
-    console.error(err);
+  });
+
+  if(!found){
 
     tb.innerHTML = `
 
     <tr>
 
       <td colspan="14">
-        โหลดข้อมูลไม่สำเร็จ
+        ไม่มีข้อมูล
       </td>
 
     </tr>
@@ -892,24 +799,11 @@ async function render(){
    EXPORT EXCEL
 ========================= */
 
-window.exportExcel = async function(){
+window.exportExcel = function(){
 
   try{
 
-    const q = query(
-      collection(db,"qaData"),
-      orderBy("createdAt","desc")
-    );
-
-    const snapshot = await getDocs(q);
-
-    const docs = [];
-
-    snapshot.forEach(d=>{
-
-      docs.push(d.data());
-
-    });
+    const docs = [...mockData];
 
     docs.sort((a,b)=>{
 
@@ -1055,7 +949,7 @@ window.exportExcel = async function(){
 
     XLSX.writeFile(
       wb,
-      "Import_Shipment_Filtered.xlsx"
+      "Import_Shipment.xlsx"
     );
 
   }catch(err){
