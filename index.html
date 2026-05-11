@@ -271,23 +271,6 @@ th{
 >
 </div>
 
-<div>
-<label>Sort Date</label>
-
-<select id="sortDate">
-
-<option value="desc">
-ใหม่ → เก่า
-</option>
-
-<option value="asc">
-เก่า → ใหม่
-</option>
-
-</select>
-
-</div>
-
 <button class="export" onclick="resetFilter()">
 Reset
 </button>
@@ -322,9 +305,11 @@ Reset
 <tbody id="tb">
 
 <tr>
+
 <td colspan="14" class="loading">
 Loading...
 </td>
+
 </tr>
 
 </tbody>
@@ -350,9 +335,7 @@ import {
   addDoc,
   getDocs,
   deleteDoc,
-  doc,
-  query,
-  orderBy
+  doc
 
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -680,7 +663,6 @@ window.resetFilter = function(){
   endDate.value = "";
   searchShipment.value = "";
   searchSupplier.value = "";
-  sortDate.value = "desc";
 
   render();
 
@@ -726,12 +708,9 @@ async function render(){
 
   try{
 
-    const q = query(
-      collection(db,"qaData"),
-      orderBy("createdAt","desc")
+    const snapshot = await getDocs(
+      collection(db,"qaData")
     );
-
-    const snapshot = await getDocs(q);
 
     const docs = [];
 
@@ -743,6 +722,18 @@ async function render(){
         ...d.data()
 
       });
+
+    });
+
+    /* =========================
+       AUTO SORT DATE
+       NEWEST FIRST
+    ========================= */
+
+    docs.sort((a,b)=>{
+
+      return new Date(b.createdAt)
+        - new Date(a.createdAt);
 
     });
 
@@ -763,26 +754,6 @@ async function render(){
       searchSupplier.value
       .trim()
       .toLowerCase();
-
-    /* =========================
-       SORT
-    ========================= */
-
-    docs.sort((a,b)=>{
-
-      if(sortDate.value === "asc"){
-
-        return new Date(a.top.date)
-          - new Date(b.top.date);
-
-      }else{
-
-        return new Date(b.top.date)
-          - new Date(a.top.date);
-
-      }
-
-    });
 
     let found = false;
 
@@ -930,6 +901,17 @@ window.exportExcel = async function(){
 
     });
 
+    /* =========================
+       SORT NEWEST FIRST
+    ========================= */
+
+    docs.sort((a,b)=>{
+
+      return new Date(b.createdAt)
+        - new Date(a.createdAt);
+
+    });
+
     const start = startDate.value;
 
     const end = endDate.value;
@@ -975,22 +957,6 @@ window.exportExcel = async function(){
       }
 
       return true;
-
-    });
-
-    filtered.sort((a,b)=>{
-
-      if(sortDate.value === "asc"){
-
-        return new Date(a.top.date)
-          - new Date(b.top.date);
-
-      }else{
-
-        return new Date(b.top.date)
-          - new Date(a.top.date);
-
-      }
 
     });
 
@@ -1107,8 +1073,6 @@ endDate.onchange = render;
 searchShipment.oninput = render;
 
 searchSupplier.oninput = render;
-
-sortDate.onchange = render;
 
 /* =========================
    START
